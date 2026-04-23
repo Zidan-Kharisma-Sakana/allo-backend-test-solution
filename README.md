@@ -1,139 +1,116 @@
 # Allo Bank Backend Developer Take-Home Test
 
-Thank you for applying to our team! This take-home test is designed to evaluate your practical skills in building **production-ready** Spring Boot applications within a finance domain, focusing on architectural patterns and complex data handling.
+Welcome, and thank you for your interest in joining Allo Bank Engineering!
 
-## 📝 Objective
+This challenge is intentionally open-ended. There is no skeleton, no guided steps, and no single correct answer. We want to see how you think, how you structure a solution, and what you consider important in production-grade code.
 
-Your task is to create a single Spring Boot REST API endpoint capable of aggregating data from multiple, distinct resources provided by the public, keyless **Frankfurter Exchange Rate API**. The primary focus is on handling Indonesian Rupiah (IDR) data.
+---
 
-The focus of this test is not just functional correctness, but demonstrating clean code, advanced Spring concepts, thread-safe design, and architectural clarity.
+## The Challenge: Split Bill API
 
-## I. Core Task: The Polymorphic API
+Build a **Spring Boot REST API** that helps a group of people manage shared expenses and calculate who owes whom at the end.
 
-### 1. External API Integration (Frankfurter API)
+Think of a real scenario: a group trip, a team lunch, a shared apartment. People take turns paying for things, and at the end someone needs to figure out the fairest way to settle up.
 
-* **Base URL (Public):** `https://api.frankfurter.app/`.
+**Your API should, at minimum, support:**
 
-* You must integrate with three distinct data resources to enforce the architectural pattern:
+1. Creating a bill group with a name and a list of participants
+2. Adding expenses to a group - who paid, how much, and who it was for
+3. Retrieving a settlement summary - a clear breakdown of who owes whom and how much
 
-   1.  `/latest?base=IDR` (The latest rates relative to IDR)
+Everything else is up to you.
 
-   2.  **Historical Data:** Query a specific, small time series (e.g., `/2024-01-01..2024-01-05?from=IDR&to=USD`). **Note:** *Use the date range provided in this example unless a different range is communicated separately.*
+---
 
-   3.  `/currencies` (The list of all supported currency symbols)
+## Technical Requirements
 
-### 2. Internal API Endpoint
+These are non-negotiable:
 
-You must expose **one single endpoint** in your application: ```GET /api/finance/data/{resourceType}```
+- **Java 17+**, **Spring Boot**, **Maven**
+- **`BigDecimal`** for all monetary values - no `float` or `double`
+- **A `Dockerfile`** using a multi-stage build (see `Dockerfile.template` in this repo)
+- At least **one unit test** covering your settlement calculation logic
+- A **`README.md`** in your submission with:
+  - How to build and run your project
+  - Example `curl` commands for each endpoint
+  - Your **GitHub username** and your calculated **service charge** value (see Personalization section below)
+  - Answer to the submission question (see below)
 
-Where `{resourceType}` can be one of the three strings: `latest_idr_rates`, `historical_idr_usd`, or `supported_currencies`.
+---
 
-### 3. Required Functionality & Business Logic
+## Personalization
 
-* **Resource Handling:** Your service must correctly map the three incoming `resourceType` values to the correct data fetching strategies.
+Every settlement response must include two additional fields: `service_charge_pct` and `service_charge_amount`.
 
-* **Data Load:** All three resources should be fetched from the external API.
+The `service_charge_pct` is unique to you and is calculated as follows:
 
-* **Data Transformation (Latest IDR Rates only) - Unique Calculation:** For the **`latest_idr_rates`** resource, you must calculate and include a new field, `"USD_BuySpread_IDR"`. This is the Rupiah selling rate to USD after applying a banking spread/margin.
+1. Take your GitHub username in **lowercase**
+2. Sum the Unicode (ASCII) values of all characters
+3. `service_charge_pct = (sum % 10)` - this gives a value between 0 and 9 (representing a percentage)
 
-  **The Spread Factor Must Be Unique :**
+**Example:** GitHub username `johndoe47`
+- Unicode sum: `106+111+104+110+100+111+101+52+55` = `850`
+- `service_charge_pct = 850 % 10` = **0** (0%)
 
-   1.  **Input:** Your GitHub username (e.g., `johndoe47`).
-   2.  **Calculation:** Calculate the sum of the Unicode (ASCII) values of all characters in your lowercase GitHub username string.
-   3.  **Spread Factor Derivation:** `Spread Factor = (Sum of Unicode Values % 1000) / 100000.0`
-       *(This will yield a unique factor between 0.00000 and 0.00999, ensuring a personalized result.)*
+The `service_charge_amount` is this percentage applied to the total group expenses.
 
-  **Final Formula:** `USD_BuySpread_IDR = (1 / Rate_USD) * (1 + Spread Factor)` (where `Rate_USD` is the value from the API when `base=IDR`).
+Include both fields in your settlement response. This value must be computed in code - do not hardcode it.
 
-* **Other Resources:** The `historical_idr_usd` and `supported_currencies` resources can return their data with minimal transformation, but the final output must be a unified JSON array of results.
+---
 
-## II. Architectural Constraints
+## Show Your Skills
 
-Meeting the core task is only one part of the solution. The following constraints must be strictly adhered to and will be heavily weighted during evaluation:
+The minimum requirements get you through the door. What you build beyond that is how you stand out.
 
-### Constraint A: The Strategy Pattern
+Some directions to explore - pick what interests you, or invent your own:
 
-The logic for handling the three different resources (`latest_idr_rates`, `historical_idr_usd`, `supported_currencies`) must be implemented using the **Strategy Design Pattern**.
+- **Multiple split strategies** - equal split, split by percentage, split by exact amount per person
+- **Settlement optimization** - minimize the total number of transactions needed to settle all debts
+- **Payment recording** - mark a debt as paid and update outstanding balances
+- **Expense categories** - tag expenses (food, transport, accommodation) and show per-category summaries
+- **Audit trail** - track when expenses and payments were added
 
-1.  Define a clear **Strategy Interface** (e.g., `IDRDataFetcher`).
+There is no bonus point checklist. We are looking at the quality of what you choose to build, not the quantity.
 
-2.  Implement **three concrete strategy classes** (one for each resource).
+---
 
-3.  The main `Controller` should dynamically select the correct strategy implementation using a map-based lookup injected by Spring, avoiding any manual `if/else` or `switch` logic in the controller layer.
+## Submission Question
 
-### Constraint B: Client Factory Bean
+In your `README.md`, answer the following in a short paragraph (3–5 sentences):
 
-The instance of your chosen external API client (`WebClient` or `RestTemplate`) **must be defined and created within a custom implementation of Spring's `FactoryBean<T>` interface**.
+> **"What was the hardest design decision you made while building this, and what trade-off did you accept?"**
 
-* This `FactoryBean` should be responsible for externalizing the API Base URL via `@Value` or `@ConfigurationProperties` and applying any initial configuration (e.g., timeouts, shared headers).
+There is no wrong answer. We ask this because it tells us more about how you think than the code itself.
 
-* ***You may not define the client as a simple `@Bean` in a `@Configuration` class.***
+---
 
-### Constraint C: Startup Data Runner & Immutability
+## Submission Process
 
-The aggregated data for **ALL three resources** must be fetched **exactly once on application startup** and loaded into an in-memory store.
+1. **Create a private GitHub repository** for your solution
+2. **Add `allobankdev` as a collaborator** (Settings → Collaborators → Add people)
+3. **Include a `Dockerfile`** in the root of your project (see `Dockerfile.template`)
+4. **Submit via the form:** [Click Here](https://forms.gle/nZKQ2EjTCPfAKHog7)
 
-1.  Use a Spring Boot **`ApplicationRunner`** or **`CommandLineRunner`** component to initiate the data fetching process.
+   The form will ask for:
+   - Your full name and contact details
+   - Your private GitHub repository URL
+   - Your GitHub username (for personalization verification)
 
-2.  The API endpoint (`GET /api/finance/data/{resourceType}`) must serve the data from this **in-memory store**, not by making a new call to the external API on every request.
+> Do not open a Pull Request to this repository. Submissions are private.
 
-3.  The in-memory storage mechanism (e.g., a service holding the data) must be designed to be **thread-safe** and ensure the data is **immutable** once the `ApplicationRunner` has finished loading it.
+---
 
-## III. Production Readiness & Deliverables
-
-Your final solution must demonstrate production quality through code, testing, and communication.
-
-### 1. Robustness & Best Practices
-
-* Graceful **Error Handling** for network failures or 4xx/5xx responses from the external API.
-
-* Proper use of **Configuration Properties** (e.g., `application.yml`) for external service URLs.
-
-* Clear separation of concerns (Controller, Service, Model/DTO, etc.).
-
-### 2. Testing
-
-* **Unit Tests** for all three `IDRDataFetcher` strategy implementations, ensuring data calculation and transformation logic is covered (using mock clients for external calls).
-
-* **Integration Tests** to verify the `ApplicationRunner` successfully initializes and loads the data into the in-memory store before the application context is ready.
-
-### 3. Documentation
-
-A clear `README.md` is mandatory. It must include:
-
-* **Setup/Run Instructions:** Clear steps to clone, build, and run the application and tests.
-
-* **Endpoint Usage:** Example cURL commands to test the three different resource types.
-
-* **Personalization Note:** Clearly state your GitHub username and show the exact **Spread Factor** (e.g., `0.00765`) calculated by your function.
-
-* ---
-
-* ### 🛠️ Architectural Rationale
-
-  This section should contain a brief, but detailed, explanation answering the following questions:
-
-   1.  **Polymorphism Justification:** Explain *why* the Strategy Pattern was used over a simpler conditional block in the service layer for handling the multi-resource endpoint. Discuss the benefits in terms of **extensibility** and **maintainability**.
-
-   2.  **Client Factory:** Explain the specific role and benefit of using a **`FactoryBean`** to construct the external API client. Why is this preferable to defining the client using a standard `@Bean` method in this scenario?
-
-   3.  **Startup Runner Choice:** Justify the choice of using an `ApplicationRunner` (or `CommandLineRunner`) for the initial data ingestion over a simpler `@PostConstruct` method.
-
-## IV. Submission & Review Process
-
-1.  **Fork** this repository.
-
-2.  Implement your solution on a dedicated feature branch (e.g., `feat/idr-rate-aggregator`).
-
-3.  When complete, submit your solution via a **Pull Request (PR)** back to the main repository.
-4.  Please complete the form to submit your technical test: [Click Here](https://forms.gle/nZKQ2EjTCPfAKHog7)
-
-**Your PR will be evaluated on the following:**
-
-* **Commit History:** Clean, atomic, and descriptive commit messages (e.g., "feat: Implement IDR latest rates strategy," "fix: Correctly calculate IDR spread in tests").
-
-* **PR Description:** The description must clearly summarize the solution and **must contain the full answers** to the three "Architectural Rationale" questions from Section III.
-
-* **Code Review Readiness:** The code should be well-structured and ready for immediate review.
+## What We Look For
+
+| Area | What it signals |
+|---|---|
+| Data modeling | How you think about domain entities and relationships |
+| API design | Clarity, consistency, and REST conventions |
+| Monetary handling | Awareness of precision issues in financial systems |
+| Code structure | Separation of concerns, readability, maintainability |
+| Testing | What you consider worth testing and why |
+| Submission answer | Genuine engagement with the problem |
+
+We review every submission before the interview. The interview will include questions directly about your code - be ready to walk through it and extend it live.
 
 Good luck!
