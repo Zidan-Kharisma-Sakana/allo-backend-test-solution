@@ -64,10 +64,10 @@ public class ExpenseService {
             log.info("Invalid amount");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
-        if (request.particpantIds() == null || request.particpantIds().isEmpty()
-                || request.particpantIds().contains(null)
-                || new HashSet<>(request.particpantIds()).size() != request.particpantIds().size()) {
-            log.info("Invalid request");
+        if (request.participantIds() == null || request.participantIds().isEmpty()
+                || request.participantIds().contains(null)
+                || new HashSet<>(request.participantIds()).size() != request.participantIds().size()) {
+            log.info("Invalid participants");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
         if (request.description() != null && request.description().length() > 255) {
@@ -81,11 +81,11 @@ public class ExpenseService {
             if (participant.getId().equals(request.payerId())) {
                 payer = participant;
             }
-            if (request.particpantIds().contains(participant.getId())) {
+            if (request.participantIds().contains(participant.getId())) {
                 beneficiaries.add(participant);
             }
         }
-        if (payer == null || beneficiaries.size() != request.particpantIds().size()) {
+        if (payer == null || beneficiaries.size() != request.participantIds().size()) {
             log.info("Payer or participants not in group");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
