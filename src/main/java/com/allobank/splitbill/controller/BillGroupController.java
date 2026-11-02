@@ -1,6 +1,8 @@
 package com.allobank.splitbill.controller;
 
 import com.allobank.splitbill.dto.BillGroupResponse;
+import com.allobank.splitbill.dto.CreateBillGroupRequest;
+import org.springframework.http.HttpStatus;
 import com.allobank.splitbill.service.BillGroupService;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
@@ -23,5 +25,11 @@ public class BillGroupController {
     @GetMapping("/{groupId}")
     public BillGroupResponse get(@PathVariable UUID groupId, HttpSession session) {
         return service.get(groupId, session.getId());
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public BillGroupResponse create(@RequestBody CreateBillGroupRequest request, HttpSession session) {
+        return service.createGroup(request, session.getId());
     }
 }
