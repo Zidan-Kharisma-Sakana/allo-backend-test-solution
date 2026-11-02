@@ -2,6 +2,16 @@ package com.allobank.splitbill.service;
 
 import com.allobank.splitbill.dto.ExpenseResponse;
 import com.allobank.splitbill.model.Expense;
+import com.allobank.splitbill.model.ExpenseShare;
+import com.allobank.splitbill.model.BillGroup;
+import com.allobank.splitbill.model.Participant;
+import com.allobank.splitbill.dto.CreateExpenseRequest;
+import com.allobank.splitbill.service.EqualSplitCalculator;
+import com.allobank.splitbill.repository.BillGroupRepository;
+import com.allobank.splitbill.repository.ParticipantRepository;
+import com.allobank.splitbill.repository.ExpenseShareRepository;
+import java.math.BigDecimal;
+import java.util.HashSet;
 import com.allobank.splitbill.repository.ExpenseRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +29,10 @@ public class ExpenseService {
 
     private final ExpenseRepository repository;
     private final BillGroupService billGroupService;
+    private final BillGroupRepository groupRepository;
+    private final ParticipantRepository participantRepository;
+    private final ExpenseShareRepository shareRepository;
+    private final EqualSplitCalculator splitCalculator;
 
     public List<ExpenseResponse> list(UUID groupId, String sessionId) {
         log.info("Listing expenses");
@@ -38,5 +52,53 @@ public class ExpenseService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found");
         }
 
+    }
+
+    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
+        log.info("Creating expense");
+        BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
+        if (group == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
+        }
+        if (request.amount() == null || request.amount().signum() <= 0 || request.amount().stripTrailingZeros().scale() > 2) {
+            log.info("Invalid amount");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        if (request.particpantIds() == null || request.particpantIds().isEmpty()
+                || request.particpantIds().contains(null)
+                || new HashSet<>(request.particpantIds()).size() != request.particpantIds().size()) {
+            log.info("Invalid request");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        if (request.description() != null && request.description().length() > 255) {
+            log.info("Description too long");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        List<Participant> participants = participantRepository.findByBillGroupIdOrderByPositionAsc(groupId);
+        Participant payer = null;
+        List<Participant> beneficiaries = new ArrayList<>();
+        for (Participant participant : participants) {
+            if (participant.getId().equals(request.payerId())) {
+                payer = participant;
+            }
+            if (request.particpantIds().contains(participant.getId())) {
+                beneficiaries.add(participant);
+            }
+        }
+        if (payer == null || beneficiaries.size() != request.particpantIds().size()) {
+            log.info("Payer or participants not in group");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        log.info("Splitting expense");
+        List<BigDecimal> amounts = splitCalculator.split(request.amount(), participants.size());
+        Expense expense = new Expense(group, payer, request.amount());
+        expense.setDescription(request.description());
+        expense = repository.save(expense);
+        List<ExpenseShare> shares = new ArrayList<>();
+        for (int i = 0; i < beneficiaries.size(); i++) {
+            shares.add(new ExpenseShare(expense, beneficiaries.get(i), amounts.get(i)));
+        }
+        shareRepository.saveAll(shares);
+        return new ExpenseResponse(expense);
     }
 }
