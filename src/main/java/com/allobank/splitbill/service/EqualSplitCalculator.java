@@ -11,9 +11,15 @@ public class EqualSplitCalculator {
 
     public List<BigDecimal> split(BigDecimal amount, int participantCount) {
         List<BigDecimal> result = new ArrayList<>();
-        BigDecimal share = amount.divide(BigDecimal.valueOf(participantCount), 2, RoundingMode.HALF_UP);
+        BigDecimal share = amount.divide(BigDecimal.valueOf(participantCount), 2, RoundingMode.DOWN);
+        BigDecimal remainder = amount.subtract(share.multiply(BigDecimal.valueOf(participantCount)));
+        int remainingCents = remainder.movePointRight(2).intValueExact();
         for (int i = 0; i < participantCount; i++) {
-            result.add(share);
+            BigDecimal part = share;
+            if (i < remainingCents) {
+                part = part.add(new BigDecimal("0.01"));
+            }
+            result.add(part);
         }
         return result;
     }
