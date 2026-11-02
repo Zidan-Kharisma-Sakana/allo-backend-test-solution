@@ -81,7 +81,7 @@ public class ExpenseService {
         if (payer == null || beneficiaries.size() != request.participantIds().size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payer and participants must belong to this group");
         }
-        List<BigDecimal> amounts = splitCalculator.split(request.amount(), participants.size());
+        List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
         expense.setDescription(request.description());
         expense = repository.save(expense);
