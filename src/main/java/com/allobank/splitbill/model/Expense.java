@@ -29,6 +29,9 @@ public class Expense {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Column(length = 255)
+    private String description;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
