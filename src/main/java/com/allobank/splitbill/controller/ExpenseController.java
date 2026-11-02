@@ -1,6 +1,8 @@
 package com.allobank.splitbill.controller;
 
 import com.allobank.splitbill.dto.ExpenseResponse;
+import com.allobank.splitbill.dto.CreateExpenseRequest;
+import org.springframework.http.HttpStatus;
 import com.allobank.splitbill.service.ExpenseService;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
@@ -23,5 +25,11 @@ public class ExpenseController {
     @GetMapping("/{expenseId}")
     public ExpenseResponse get(@PathVariable UUID groupId, @PathVariable UUID expenseId, HttpSession session) {
         return service.get(groupId, expenseId, session.getId());
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ExpenseResponse create(@PathVariable UUID groupId, @RequestBody CreateExpenseRequest request, HttpSession session) {
+        return service.create(groupId, request, session.getId());
     }
 }
