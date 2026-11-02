@@ -6,6 +6,29 @@ This challenge is intentionally open-ended. There is no skeleton, no guided step
 
 ---
 
+## Running the Project
+
+The project uses Java 21, Spring Boot, and Maven. Install JDK 21. The included
+Maven wrapper downloads Maven automatically on its first run.
+
+```sh
+./mvnw clean verify
+./mvnw spring-boot:run
+```
+
+On Windows, use `mvnw.cmd` instead of `./mvnw`.
+The application listens on port **4110**. Business endpoints will be added in
+later iterations. Requesting `/` currently returns HTTP 404.
+
+To run the packaged application:
+
+```sh
+./mvnw clean package
+java -jar target/split-bill-0.0.1-SNAPSHOT.jar
+```
+
+---
+
 ## The Challenge: Split Bill API
 
 Build a **Spring Boot REST API** that helps a group of people manage shared expenses and calculate who owes whom at the end.
