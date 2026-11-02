@@ -4,6 +4,7 @@ import com.allobank.splitbill.dto.BillGroupResponse;
 import com.allobank.splitbill.service.BillGroupService;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,5 +18,10 @@ public class BillGroupController {
     @GetMapping
     public List<BillGroupResponse> list(HttpSession session) {
         return service.list(session.getId());
+    }
+
+    @GetMapping("/{groupId}")
+    public BillGroupResponse get(@PathVariable UUID groupId, HttpSession session) {
+        return service.get(groupId, session.getId());
     }
 }
