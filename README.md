@@ -17,8 +17,18 @@ Maven wrapper downloads Maven automatically on its first run.
 ```
 
 On Windows, use `mvnw.cmd` instead of `./mvnw`.
-The application listens on port **4110**. Business endpoints will be added in
-later iterations; requesting `/` currently returns HTTP 404.
+The application listens on port **4110**.
+
+Try the hello-world endpoint:
+
+```sh
+curl http://localhost:4110/hello
+# {"message":"Hello, world!"}
+```
+
+Open Swagger UI at http://localhost:4110/swagger-ui/index.html, expand
+`GET /hello`, click **Try it out**, then **Execute**.
+The OpenAPI JSON is available at http://localhost:4110/v3/api-docs.
 
 To run the packaged application:
 
