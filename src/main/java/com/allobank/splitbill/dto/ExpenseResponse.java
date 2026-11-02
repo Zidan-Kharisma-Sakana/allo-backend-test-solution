@@ -8,6 +8,6 @@ import java.math.BigDecimal;
 public record ExpenseResponse(UUID id, UUID billGroupId, UUID payerId, BigDecimal amount, LocalDateTime createdAt) {
 
     public ExpenseResponse(Expense value) {
-        this(value.getId(), value.getBillGroup().getId(), value.getId(), value.getAmount(), value.getCreatedAt());
+        this(value.getId(), value.getBillGroup().getId(), value.getPayer().getId(), value.getAmount(), value.getCreatedAt());
     }
 }
