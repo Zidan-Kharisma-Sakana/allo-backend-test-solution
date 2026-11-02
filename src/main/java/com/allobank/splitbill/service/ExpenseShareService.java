@@ -34,7 +34,7 @@ public class ExpenseShareService {
         ExpenseShareId id = new ExpenseShareId(expenseId, participantId);
         ExpenseShare share = repository.findById(id).orElse(null);
         if (share == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expnese share not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense share not found");
         }
         return new ExpenseShareResponse(share);
     }
