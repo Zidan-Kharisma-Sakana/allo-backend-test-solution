@@ -90,7 +90,7 @@ public class ExpenseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
         log.info("Splitting expense");
-        List<BigDecimal> amounts = splitCalculator.split(request.amount(), participants.size());
+        List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
         expense.setDescription(request.description());
         expense = repository.save(expense);
