@@ -90,6 +90,15 @@ public class ExpenseService {
             log.info("Payer or participants not in group");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
+        if (key == null || key.isBlank() || key.length() > 128) {
+            log.info("Invalid idempotency key");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElse(null);
+        if (previous != null) {
+            log.info("Replaying expense request");
+            return new ExpenseResponse(previous);
+        }
         log.info("Splitting expense");
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
