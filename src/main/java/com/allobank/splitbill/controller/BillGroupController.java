@@ -32,4 +32,9 @@ public class BillGroupController {
     public BillGroupResponse create(@RequestBody CreateBillGroupRequest request, HttpSession session) {
         return service.create(request, session.getId());
     }
+
+    @PostMapping("/join")
+    public BillGroupResponse join(@RequestBody com.allobank.splitbill.dto.JoinGroupRequest request, HttpSession session) {
+        return service.join(request.code(), session.getId());
+    }
 }

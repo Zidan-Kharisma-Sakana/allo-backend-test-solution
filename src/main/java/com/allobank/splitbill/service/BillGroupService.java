@@ -19,11 +19,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class BillGroupService {
-    private final com.allobank.splitbill.repository.GroupMemberRepository members;
 
     private final BillGroupRepository repository;
     private final ParticipantRepository participantRepository;
     private final InviteCodeGenerator codes;
+    private final com.allobank.splitbill.repository.GroupMemberRepository members;
 
     public List<BillGroupResponse> list(String sessionId) {
         log.info("Listing bill groups");
@@ -62,13 +62,25 @@ public class BillGroupService {
         }
         BillGroup group = new BillGroup(request.name().trim());
         group.setInviteCode(codes.generate());
-        group = repository.save(group);
+        group = repository.saveAndFlush(group);
         List<Participant> participants = new ArrayList<>();
         for (int i = 0; i < request.participants().size(); i++) {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
         }
         participantRepository.saveAll(participants);
         members.add(group.getId(), sessionId);
+        return new BillGroupResponse(group);
+    }
+
+    public BillGroupResponse join(String code, String sessionId) {
+        log.info("Joining bill group");
+        if (code == null || !code.matches("[A-Z0-9]{6}")) {
+            log.info("Invalid invite code");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        BillGroup group = repository.findByInviteCode(code).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Invite code not found"));
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 }
