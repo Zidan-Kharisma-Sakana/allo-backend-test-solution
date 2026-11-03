@@ -59,6 +59,9 @@ public class SettlementCalculator {
                 }
             }
         }
-        return new SettlementResponse("IDR", total, balances, settlements, 0, zero);
+        int percentage = (int) (username.toLowerCase(Locale.ROOT).codePoints().asLongStream().sum() % 10);
+        BigDecimal charge = total.multiply(BigDecimal.valueOf(percentage)).movePointLeft(2)
+                .setScale(2, RoundingMode.HALF_UP);
+        return new SettlementResponse("IDR", total, balances, settlements, percentage, charge);
     }
 }
