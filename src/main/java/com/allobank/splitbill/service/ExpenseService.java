@@ -87,6 +87,8 @@ public class ExpenseService {
             return new ExpenseResponse(saved);
         }
         validateInput(request);
+        List<UUID> selectedIds = request.allocations() == null
+                ? request.participantIds() : new ArrayList<>(request.allocations().keySet());
         List<Participant> participants = participantRepository.findByBillGroupIdOrderByPositionAsc(groupId);
         Participant payer = null;
         List<Participant> beneficiaries = new ArrayList<>();
@@ -94,17 +96,24 @@ public class ExpenseService {
             if (participant.getId().equals(request.payerId())) {
                 payer = participant;
             }
-            if (request.participantIds().contains(participant.getId())) {
+            if (selectedIds.contains(participant.getId())) {
                 beneficiaries.add(participant);
             }
         }
-        if (payer == null || beneficiaries.size() != request.participantIds().size()) {
+        if (payer == null || beneficiaries.size() != selectedIds.size()) {
             log.info("Payer or participants not in group");
             throw invalidRequest();
         }
         log.info("Splitting expense");
         BigDecimal amount = request.amount().setScale(0, RoundingMode.UNNECESSARY);
-        List<BigDecimal> amounts = splitCalculator.split(amount, beneficiaries.size());
+        List<BigDecimal> amounts;
+        if (request.allocations() == null) {
+            amounts = splitCalculator.splitEqual(amount, beneficiaries.size());
+        } else {
+            log.info("Applying exact split");
+            amounts = splitCalculator.splitExact(amount,
+                    beneficiaries.stream().map(Participant::getId).toList(), request.allocations());
+        }
         Expense expense = new Expense(group, payer, amount);
         expense.setIdempotencyKey(key);
         expense.setDescription(request.description());
@@ -122,7 +131,13 @@ public class ExpenseService {
             log.info("Invalid amount");
             throw invalidRequest();
         }
-        if (request.participantIds() == null || request.participantIds().isEmpty()
+        if (request.allocations() != null) {
+            if (request.allocations().isEmpty() || request.allocations().keySet().stream().anyMatch(id -> id == null)
+                    || request.participantIds() != null) {
+                log.info("Invalid exact split");
+                throw invalidRequest();
+            }
+        } else if (request.participantIds() == null || request.participantIds().isEmpty()
                 || request.participantIds().contains(null)
                 || new HashSet<>(request.participantIds()).size() != request.participantIds().size()) {
             log.info("Invalid participants");
