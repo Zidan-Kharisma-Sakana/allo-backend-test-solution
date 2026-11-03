@@ -1,0 +1,11 @@
+.git
+.idea
+.codex
+.agents
+.aws
+.env*
+target
+docs
+postman
+cookies*.txt
+*.log
