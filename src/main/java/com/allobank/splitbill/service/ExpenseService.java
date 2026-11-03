@@ -55,7 +55,7 @@ public class ExpenseService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
+    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         log.info("Creating expense");
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
@@ -93,6 +93,11 @@ public class ExpenseService {
         log.info("Splitting expense");
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
+        if (key == null || key.isBlank() || key.length() > 128) {
+            log.info("Invalid idempotency key");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        expense.setIdempotencyKey(key);
         expense.setDescription(request.description());
         expense = repository.save(expense);
         List<ExpenseShare> shares = new ArrayList<>();

@@ -24,7 +24,7 @@ public class ExpenseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ExpenseResponse create(@PathVariable UUID groupId, @RequestBody CreateExpenseRequest request, HttpSession session) {
-        return service.create(groupId, request, session.getId());
+    public ExpenseResponse create(@PathVariable UUID groupId, @RequestBody CreateExpenseRequest request, @RequestHeader("Idempotency-Key") String key, HttpSession session) {
+        return service.create(groupId, request, session.getId(), key);
     }
 }
