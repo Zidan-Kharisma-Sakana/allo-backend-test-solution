@@ -51,8 +51,9 @@ public class ExpenseService {
         if (expense == null || !expense.getBillGroup().getId().equals(groupId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found");
         }
-
     }
+
+
 
     @org.springframework.transaction.annotation.Transactional
     public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
