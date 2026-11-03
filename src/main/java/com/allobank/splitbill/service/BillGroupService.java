@@ -25,7 +25,7 @@ public class BillGroupService {
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public List<BillGroupResponse> list(String sessionId) {
-        List<BillGroup> groups = repository.findByOwnerSessionId(sessionId);
+        List<BillGroup> groups = repository.findAccessibleBySessionId(sessionId);
         List<BillGroupResponse> result = new ArrayList<>();
         for (BillGroup group : groups) {
             result.add(new BillGroupResponse(group));
@@ -34,7 +34,7 @@ public class BillGroupService {
     }
 
     public BillGroupResponse get(UUID groupId, String sessionId) {
-        BillGroup group = repository.findByIdAndOwnerSessionId(groupId, sessionId).orElse(null);
+        BillGroup group = repository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
         }
@@ -77,7 +77,7 @@ public class BillGroupService {
     }
 
     public BillGroupResponse update(UUID groupId, UpdateBillGroupRequest request, String sessionId) {
-        BillGroup group = repository.findByIdAndOwnerSessionId(groupId, sessionId).orElse(null);
+        BillGroup group = repository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
         }

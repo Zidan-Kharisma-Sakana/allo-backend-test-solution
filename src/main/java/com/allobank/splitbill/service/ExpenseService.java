@@ -52,7 +52,7 @@ public class ExpenseService {
     }
 
     public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
-        BillGroup group = groupRepository.findByIdAndOwnerSessionId(groupId, sessionId).orElse(null);
+        BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
         }
