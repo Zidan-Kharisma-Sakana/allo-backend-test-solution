@@ -44,6 +44,7 @@ public class BillGroupService {
         return new BillGroupResponse(group);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public BillGroupResponse create(CreateBillGroupRequest request, String sessionId) {
         log.info("Creating bill group");
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 150) {
@@ -69,6 +70,7 @@ public class BillGroupService {
         }
         participantRepository.saveAll(participants);
         members.add(group.getId(), sessionId);
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 
