@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: split_bill
+      POSTGRES_USER: split_bill
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-split_bill_local}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U split_bill -d split_bill"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "4110:4110"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/split_bill
+      DB_PASSWORD: ${DB_PASSWORD:-split_bill_local}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

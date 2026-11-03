@@ -33,6 +33,7 @@ public class ExpenseService {
     private final ParticipantRepository participantRepository;
     private final ExpenseShareRepository shareRepository;
     private final EqualSplitCalculator splitCalculator;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     public List<ExpenseResponse> list(UUID groupId, String sessionId) {
         log.info("Listing expenses");
@@ -51,11 +52,28 @@ public class ExpenseService {
         if (expense == null || !expense.getBillGroup().getId().equals(groupId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found");
         }
-
     }
 
-    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
+
+
+    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         log.info("Creating expense");
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        try {
+            return transaction.execute(status -> createOnce(groupId, request, sessionId, key));
+        } catch (org.springframework.dao.DataIntegrityViolationException failure) {
+            if (!DatabaseConflict.isConstraint(failure, "expenses_group_request_key_unique")) throw failure;
+            log.info("Recovering concurrent expense request");
+            // The losing transaction has rolled back. Read the committed winner in a new one.
+            return transaction.execute(status -> {
+                billGroupService.get(groupId, sessionId);
+                Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElseThrow(() -> failure);
+                return new ExpenseResponse(previous);
+            });
+        }
+    }
+
+    private ExpenseResponse createOnce(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
@@ -89,16 +107,26 @@ public class ExpenseService {
             log.info("Payer or participants not in group");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
         }
+        if (key == null || key.isBlank() || key.length() > 128) {
+            log.info("Invalid idempotency key");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElse(null);
+        if (previous != null) {
+            log.info("Replaying expense request");
+            return new ExpenseResponse(previous);
+        }
         log.info("Splitting expense");
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
+        expense.setIdempotencyKey(key);
         expense.setDescription(request.description());
         expense = repository.save(expense);
         List<ExpenseShare> shares = new ArrayList<>();
         for (int i = 0; i < beneficiaries.size(); i++) {
             shares.add(new ExpenseShare(expense, beneficiaries.get(i), amounts.get(i)));
         }
-        shareRepository.saveAll(shares);
+        shareRepository.saveAllAndFlush(shares);
         return new ExpenseResponse(expense);
     }
 }

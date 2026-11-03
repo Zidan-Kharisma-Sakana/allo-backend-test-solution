@@ -19,10 +19,12 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class BillGroupService {
-    private final com.allobank.splitbill.repository.GroupMemberRepository members;
 
     private final BillGroupRepository repository;
     private final ParticipantRepository participantRepository;
+    private final InviteCodeGenerator codes;
+    private final com.allobank.splitbill.repository.GroupMemberRepository members;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     public List<BillGroupResponse> list(String sessionId) {
         log.info("Listing bill groups");
@@ -45,6 +47,20 @@ public class BillGroupService {
 
     public BillGroupResponse create(CreateBillGroupRequest request, String sessionId) {
         log.info("Creating bill group");
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        for (int attempt = 0; attempt < 10; attempt++) {
+            try {
+                return transaction.execute(status -> createOnce(request, sessionId));
+            } catch (org.springframework.dao.DataIntegrityViolationException failure) {
+                if (!DatabaseConflict.isConstraint(failure, "bill_groups_invite_code_unique")) throw failure;
+                log.info("Invite code collision on attempt {} of 10", attempt + 1);
+            }
+        }
+        log.error("Invite retries exhausted");
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Something went wrong, try again");
+    }
+
+    private BillGroupResponse createOnce(CreateBillGroupRequest request, String sessionId) {
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 150) {
             log.info("Invalid group name");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
@@ -59,12 +75,26 @@ public class BillGroupService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
             }
         }
-        BillGroup group = repository.save(new BillGroup(request.name().trim()));
+        BillGroup group = new BillGroup(request.name().trim());
+        group.setInviteCode(codes.generate());
+        group = repository.saveAndFlush(group);
         List<Participant> participants = new ArrayList<>();
         for (int i = 0; i < request.participants().size(); i++) {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
         }
         participantRepository.saveAll(participants);
+        members.add(group.getId(), sessionId);
+        return new BillGroupResponse(group);
+    }
+
+    public BillGroupResponse join(String code, String sessionId) {
+        log.info("Joining bill group");
+        if (code == null || !code.matches("[A-Z0-9]{6}")) {
+            log.info("Invalid invite code");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
+        }
+        BillGroup group = repository.findByInviteCode(code).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Invite code not found"));
         members.add(group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
