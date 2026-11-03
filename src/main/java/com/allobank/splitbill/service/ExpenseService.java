@@ -31,6 +31,7 @@ public class ExpenseService {
     private final ParticipantRepository participantRepository;
     private final ExpenseShareRepository shareRepository;
     private final EqualSplitCalculator splitCalculator;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     public List<ExpenseResponse> list(UUID groupId, String sessionId) {
         billGroupService.get(groupId, sessionId);
@@ -58,8 +59,22 @@ public class ExpenseService {
         return new ExpenseResponse(previous);
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        try {
+            return transaction.execute(status -> createOnce(groupId, request, sessionId, key));
+        } catch (org.springframework.dao.DataIntegrityViolationException failure) {
+            if (!DatabaseConflict.isConstraint(failure, "expenses_group_request_key_unique")) throw failure;
+            // The losing transaction has rolled back. Read the committed winner in a new one.
+            return transaction.execute(status -> {
+                billGroupService.get(groupId, sessionId);
+                Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElseThrow(() -> failure);
+                return replay(previous, request);
+            });
+        }
+    }
+
+    private ExpenseResponse createOnce(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
@@ -96,9 +111,6 @@ public class ExpenseService {
         if (previous != null) return replay(previous, request);
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
-        if (key == null || !key.matches("[!-~]{1,128}")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key must be 1 to 128 visible ASCII characters");
-        }
         expense.setIdempotencyKey(key);
         expense.setRequestFingerprint(ExpenseFingerprint.of(request));
         expense.setDescription(request.description());
@@ -107,7 +119,7 @@ public class ExpenseService {
         for (int i = 0; i < beneficiaries.size(); i++) {
             shares.add(new ExpenseShare(expense, beneficiaries.get(i), amounts.get(i)));
         }
-        shareRepository.saveAll(shares);
+        shareRepository.saveAllAndFlush(shares);
         return new ExpenseResponse(expense);
     }
 }
