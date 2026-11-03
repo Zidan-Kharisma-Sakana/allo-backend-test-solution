@@ -46,6 +46,19 @@ public class SettlementCalculator {
             balances.add(new Balance(id, participant.getName(), paid.get(id), owed.get(id), balance));
             remaining.put(id, balance);
         }
-        return new SettlementResponse("IDR", total, balances, List.of(), 0, zero);
+        List<Transfer> settlements = new ArrayList<>();
+        for (Participant debtor : participants) {
+            for (Participant creditor : participants) {
+                BigDecimal debt = remaining.get(debtor.getId());
+                BigDecimal credit = remaining.get(creditor.getId());
+                if (debt.signum() < 0 && credit.signum() > 0) {
+                    BigDecimal amount = debt.negate().min(credit);
+                    settlements.add(new Transfer(debtor.getId(), creditor.getId(), amount));
+                    remaining.put(debtor.getId(), debt.add(amount));
+                    remaining.put(creditor.getId(), credit.subtract(amount));
+                }
+            }
+        }
+        return new SettlementResponse("IDR", total, balances, settlements, 0, zero);
     }
 }
