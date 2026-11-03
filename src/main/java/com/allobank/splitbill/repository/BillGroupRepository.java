@@ -12,11 +12,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BillGroupRepository extends JpaRepository<BillGroup, UUID> {
 
+    @Query(value = "SELECT g.* FROM bill_groups g JOIN group_members m ON m.bill_group_id = g.id WHERE m.session_id = :sessionId ORDER BY g.created_at, g.id", nativeQuery = true)
+    List<BillGroup> findAccessibleBySessionId(@Param("sessionId") String sessionId);
+
+    @Query(value = "SELECT g.* FROM bill_groups g JOIN group_members m ON m.bill_group_id = g.id WHERE g.id = :id AND m.session_id = :sessionId", nativeQuery = true)
+    Optional<BillGroup> findAccessibleById(@Param("id") UUID id, @Param("sessionId") String sessionId);
+
     Optional<BillGroup> findByInviteCode(String inviteCode);
 
 
-    @Query(value = "SELECT g.* FROM bill_groups g JOIN group_members m ON m.bill_group_id=g.id WHERE g.id=:id AND m.session_id=:sessionId", nativeQuery = true)
-    Optional<BillGroup> findAccessibleById(@Param("id") UUID id, @Param("sessionId") String sessionId);
-    @Query(value = "SELECT g.* FROM bill_groups g JOIN group_members m ON m.bill_group_id=g.id WHERE m.session_id=:sessionId ORDER BY g.created_at,g.id", nativeQuery = true)
-    List<BillGroup> findAccessibleBySessionId(@Param("sessionId") String sessionId);
 }
