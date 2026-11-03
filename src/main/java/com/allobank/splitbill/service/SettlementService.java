@@ -23,6 +23,8 @@ public class SettlementService {
     @Value("${app.github-username:Zidan-Kharisma-Sakana}")
     private String username;
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public SettlementResponse get(UUID groupId, String sessionId) {
         groupService.get(groupId, sessionId);
         return calculator.calculate(

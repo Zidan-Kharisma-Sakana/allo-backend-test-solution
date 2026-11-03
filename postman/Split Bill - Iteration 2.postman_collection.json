@@ -1,0 +1,1126 @@
+{
+  "info": {
+    "_postman_id": "df6b9cd7-20a3-4f9b-8247-7583071c1e92",
+    "name": "Split Bill - iteration 2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run from 01 to 06. creates a new group each run.\n\nOwner, member and outsider use separate session cookies. Cookie jar is disabled per request, no need to clear cookies by hand. IDs and keys get saved automatically.\n\nFlow: settlement first, another session joins, add expenses, retry same requests, then check outsider access. Folder 04 sends 6 expense requests together.\n\nDefault service charge is 5%. change service_charge_pct if app.github-username is different.\n\nOpen Visualize on the last request for who pays who. Rollback and forced invite collisions need database fault injection, checked separately.\n\nNo accounts or verified payer identity. Anyone joined can record expense as anyone in the group."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4110",
+      "type": "string"
+    },
+    {
+      "key": "service_charge_pct",
+      "value": "5",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "owner_session",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "member_session",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "outsider_session",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "group_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "invite_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "alice_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bob_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cara_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lunch_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "concurrent_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - create group and see empty settlement",
+      "item": [
+        {
+          "name": "create group first",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bandung weekend - iteration 2\",\n  \"participants\": [\n    \"Alice\",\n    \"Bob\",\n    \"Cara\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"run_id\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "[\"owner_session\", \"member_session\", \"outsider_session\", \"group_id\", \"invite_code\", \"alice_id\", \"bob_id\", \"cara_id\", \"lunch_id\", \"concurrent_id\"].forEach(k => pm.collectionVariables.unset(k));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "const cookie = pm.response.headers.all().find(h => h.key.toLowerCase() === \"set-cookie\" && h.value.startsWith(\"JSESSIONID=\"));",
+                  "pm.test(\"session cookie exists\", () => pm.expect(cookie).to.exist);",
+                  "if (cookie) pm.collectionVariables.set(\"owner_session\", cookie.value.split(\";\")[0].split(\"=\")[1]);",
+                  "const group = pm.response.json();",
+                  "pm.collectionVariables.set(\"group_id\", group.id);",
+                  "pm.collectionVariables.set(\"invite_code\", group.inviteCode);",
+                  "pm.test(\"6 uppercase letters/numbers\", () => pm.expect(group.inviteCode).to.match(/^[A-Z0-9]{6}$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "get participants",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/participants"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const people = pm.response.json();",
+                  "[\"alice\", \"bob\", \"cara\"].forEach((name, i) => pm.collectionVariables.set(name + \"_id\", people[i].id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "empty group settlement",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/settlement"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test(\"nothing to settle yet\", () => { pm.expect(s.totalExpenses).to.eql(0); pm.expect(s.settlements).to.eql([]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - another session joins",
+      "item": [
+        {
+          "name": "new member session",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/bill-groups"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const cookie = pm.response.headers.all().find(h => h.key.toLowerCase() === \"set-cookie\" && h.value.startsWith(\"JSESSIONID=\"));",
+                  "pm.test(\"session cookie exists\", () => pm.expect(cookie).to.exist);",
+                  "if (cookie) pm.collectionVariables.set(\"member_session\", cookie.value.split(\";\")[0].split(\"=\")[1]);",
+                  "pm.test(\"new session sees no groups\", () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "cant access before joining",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "join with code",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/join",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{invite_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"same group\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"group_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "join again, should be fine",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/join",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{invite_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "member can rename too",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bandung weekend - joined\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "group shows in member list",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"joined group listed\", () => pm.expect(pm.response.json().map(g => g.id)).to.include(pm.collectionVariables.get(\"group_id\")));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - add expenses then settlement",
+      "item": [
+        {
+          "name": "owner adds lunch",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-lunch"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 100000,\n  \"description\": \"lunch\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\",\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"lunch_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "member adds taxi as Alice",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-taxi"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 20000,\n  \"description\": \"taxi\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bob pays tickets for Cara",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-tickets"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{bob_id}}\",\n  \"amount\": 15000,\n  \"description\": \"tickets\",\n  \"participantIds\": [\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "check settlement",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/settlement"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test(\"total 135000\", () => pm.expect(s.totalExpenses).to.eql(135000));",
+                  "pm.test(\"who pays who\", () => {",
+                  " const transfers = s.settlements.map(t => t.amount).sort((a,b) => a-b);",
+                  " pm.expect(transfers).to.eql([28333.33, 48333.33]);",
+                  " s.settlements.forEach(t => pm.expect(t.toParticipantId).to.eql(pm.collectionVariables.get(\"alice_id\")));",
+                  "});",
+                  "pm.test(\"service charge\", () => {",
+                  " pm.expect(s.service_charge_pct).to.eql(Number(pm.collectionVariables.get(\"service_charge_pct\")));",
+                  " pm.expect(s.service_charge_amount).to.eql(Math.round(s.totalExpenses * s.service_charge_pct) / 100);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - retry stuff",
+      "item": [
+        {
+          "name": "same expense from member, same result",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{member_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-lunch"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 100000,\n  \"description\": \"lunch\",\n  \"participantIds\": [\n    \"{{cara_id}}\",\n    \"{{bob_id}}\",\n    \"{{alice_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"same expense id\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"lunch_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "same key but amount different",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-lunch"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 99999,\n  \"description\": \"lunch\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\",\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "missing key",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 100000,\n  \"description\": \"lunch\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\",\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "still only 3 expenses",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"no duplicates\", () => pm.expect(pm.response.json()).to.have.lengthOf(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "send same request together",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const vars = pm.collectionVariables;",
+                  "const body = {payerId:vars.get(\"bob_id\"), amount:120, description:\"concurrent retry\", participantIds:[vars.get(\"alice_id\"),vars.get(\"bob_id\"),vars.get(\"cara_id\")]};",
+                  "const ids = []; let pending = 6;",
+                  "for (let i = 0; i < 6; i++) {",
+                  " pm.sendRequest({url:pm.variables.get(\"base_url\") + \"/bill-groups/\" + vars.get(\"group_id\") + \"/expenses\", method:\"POST\", header:{\"Content-Type\":\"application/json\", \"Cookie\":\"JSESSIONID=\" + vars.get(i % 2 ? \"member_session\" : \"owner_session\"), \"Idempotency-Key\":vars.get(\"run_id\") + \"-concurrent\"}, body:{mode:\"raw\",raw:JSON.stringify(body)}}, (err, response) => {",
+                  "  pm.test(\"parallel request \" + i, () => { pm.expect(err).to.not.exist; pm.expect(response.code).to.eql(201); });",
+                  "  if (!err && response.code === 201) ids.push(response.json().id);",
+                  "  if (--pending === 0) {",
+                  "   pm.test(\"all 6 returned same expense\", () => {pm.expect(ids).to.have.lengthOf(6);pm.expect(new Set(ids).size).to.eql(1);});",
+                  "   if (ids.length) vars.set(\"concurrent_id\", ids[0]);",
+                  "  }",
+                  " });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "only 1 extra expense",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"4 expenses total\", () => pm.expect(pm.response.json()).to.have.lengthOf(4));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - outsider cant use our group",
+      "item": [
+        {
+          "name": "outsider session",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/bill-groups"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const cookie = pm.response.headers.all().find(h => h.key.toLowerCase() === \"set-cookie\" && h.value.startsWith(\"JSESSIONID=\"));",
+                  "pm.test(\"session cookie exists\", () => pm.expect(cookie).to.exist);",
+                  "if (cookie) pm.collectionVariables.set(\"outsider_session\", cookie.value.split(\";\")[0].split(\"=\")[1]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads group",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads participants",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/participants"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads expenses",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads expense detail",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{lunch_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads shares",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{lunch_id}}/shares"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider reads settlement",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/settlement"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider tries same key",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{run_id}}-lunch"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 100000,\n  \"description\": \"lunch\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\",\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outsider tries rename",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{outsider_session}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"nope\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - final result",
+      "item": [
+        {
+          "name": "settlement after concurrent retry",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "JSESSIONID={{owner_session}}"
+              }
+            ],
+            "url": "{{base_url}}/bill-groups/{{group_id}}/settlement"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test(\"total 135120\", () => pm.expect(s.totalExpenses).to.eql(135120));",
+                  "pm.test(\"balances sum to zero\", () => pm.expect(Math.round(s.balances.reduce((n,b) => n+b.balance,0)*100)).to.eql(0));",
+                  "pm.test(\"all balances settled\", () => {",
+                  " const remaining = Object.fromEntries(s.balances.map(b => [b.participantId, Math.round(b.balance*100)]));",
+                  " s.settlements.forEach(t => { const cents=Math.round(t.amount*100); remaining[t.fromParticipantId]+=cents;remaining[t.toParticipantId]-=cents; });",
+                  " Object.values(remaining).forEach(value => pm.expect(value).to.eql(0));",
+                  "});",
+                  "pm.visualizer.set(`<style>body{font:16px system-ui;padding:24px;color:#172554}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:12px;border-bottom:1px solid #ddd}h1{font-size:28px}</style><h1>who pays who</h1><p>Total: {{total}} IDR \u00b7 service charge: {{charge}}</p><table><tr><th>from</th><th>to</th><th>amount</th></tr>{{#each transfers}}<tr><td>{{from}}</td><td>{{to}}</td><td>{{amount}}</td></tr>{{/each}}</table>`, {total:s.totalExpenses,charge:s.service_charge_amount,transfers:s.settlements.map(t=>({from:s.balances.find(b=>b.participantId===t.fromParticipantId).name,to:s.balances.find(b=>b.participantId===t.toParticipantId).name,amount:t.amount}))});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
