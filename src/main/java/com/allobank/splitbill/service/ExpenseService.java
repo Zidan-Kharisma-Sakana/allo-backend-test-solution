@@ -54,6 +54,7 @@ public class ExpenseService {
 
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
         log.info("Creating expense");
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
