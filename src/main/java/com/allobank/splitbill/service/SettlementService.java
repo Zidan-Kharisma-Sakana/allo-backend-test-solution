@@ -1,6 +1,5 @@
 package com.allobank.splitbill.service;
 
-import com.allobank.splitbill.service.SettlementCalculator;
 import com.allobank.splitbill.dto.SettlementResponse;
 import com.allobank.splitbill.repository.ExpenseRepository;
 import com.allobank.splitbill.repository.ExpenseShareRepository;
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SettlementService {
 
-    private final BillGroupService groupService;
+    private final BillGroupService access;
     private final ParticipantRepository participantRepository;
     private final ExpenseRepository expenseRepository;
     private final ExpenseShareRepository shareRepository;
@@ -27,7 +26,7 @@ public class SettlementService {
 
     public SettlementResponse get(UUID groupId, String sessionId) {
         log.info("Calculating settlement");
-        groupService.get(groupId, sessionId);
+        access.requireGroup(groupId, sessionId);
         return calculator.calculate(
                 participantRepository.findByBillGroupIdOrderByPositionAsc(groupId),
                 expenseRepository.findByBillGroupIdOrderByCreatedAtAsc(groupId),

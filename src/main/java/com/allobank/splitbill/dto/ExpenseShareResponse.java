@@ -1,8 +1,8 @@
 package com.allobank.splitbill.dto;
 
 import com.allobank.splitbill.model.ExpenseShare;
-import java.util.UUID;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record ExpenseShareResponse(UUID expenseId, UUID participantId, BigDecimal amount) {
 

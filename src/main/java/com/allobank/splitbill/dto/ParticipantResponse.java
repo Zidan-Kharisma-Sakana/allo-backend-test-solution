@@ -1,8 +1,8 @@
 package com.allobank.splitbill.dto;
 
 import com.allobank.splitbill.model.Participant;
-import java.util.UUID;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record ParticipantResponse(UUID id, UUID billGroupId, String name, int position, LocalDateTime createdAt) {
 

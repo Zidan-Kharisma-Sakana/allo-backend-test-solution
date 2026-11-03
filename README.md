@@ -72,8 +72,11 @@ curl -b cookies.txt "$BASE/bill-groups/$GROUP_ID/expenses/$EXPENSE_ID/shares"
 curl -b cookies.txt "$BASE/bill-groups/$GROUP_ID/settlement"
 ```
 
-Missing or inaccessible resources return 404. Reused keys return the original expense. Settlement returns participant balances and suggested transfers.
+Missing or inaccessible resources return 404. Reusing an expense key returns
+the original expense. Use a new key for each new expense. Settlement returns participant balances and suggested transfers.
 The service charge is separate from those transfers.
+Errors include `status` and `message`. Validation
+errors return 400 and inaccessible resources return 404. Unexpected failures return 500 with a generic message.
 
 ## Tests
 

@@ -1,8 +1,8 @@
 package com.allobank.splitbill.service;
 
-import com.allobank.splitbill.dto.SettlementResponse;
 import com.allobank.splitbill.dto.SettlementResponse.Balance;
 import com.allobank.splitbill.dto.SettlementResponse.Transfer;
+import com.allobank.splitbill.dto.SettlementResponse;
 import com.allobank.splitbill.model.Expense;
 import com.allobank.splitbill.model.ExpenseShare;
 import com.allobank.splitbill.model.Participant;

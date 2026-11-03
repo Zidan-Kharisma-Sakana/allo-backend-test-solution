@@ -16,14 +16,14 @@ import org.springframework.stereotype.Service;
 public class ParticipantService {
 
     private final ParticipantRepository repository;
-    private final BillGroupService billGroupService;
+    private final BillGroupService access;
 
     public List<ParticipantResponse> list(UUID groupId, String sessionId) {
         log.info("Listing participants");
-        billGroupService.get(groupId, sessionId);
-        List<Participant> particpants = repository.findByBillGroupIdOrderByPositionAsc(groupId);
+        access.requireGroup(groupId, sessionId);
+        List<Participant> participants = repository.findByBillGroupIdOrderByPositionAsc(groupId);
         List<ParticipantResponse> result = new ArrayList<>();
-        for (Participant participant : particpants) {
+        for (Participant participant : participants) {
             result.add(new ParticipantResponse(participant));
         }
         return result;

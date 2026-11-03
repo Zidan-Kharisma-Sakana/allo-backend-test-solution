@@ -1,4 +1,4 @@
-package com.allobank.splitbill.service;
+package com.allobank.splitbill.util;
 
 import java.sql.SQLException;
 import org.springframework.core.NestedExceptionUtils;
