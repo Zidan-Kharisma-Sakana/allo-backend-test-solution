@@ -22,6 +22,7 @@ public class BillGroupService {
     private final BillGroupRepository repository;
     private final ParticipantRepository participantRepository;
     private final InviteCodeGenerator codes;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public List<BillGroupResponse> list(String sessionId) {
         List<BillGroup> groups = repository.findByOwnerSessionId(sessionId);
@@ -54,12 +55,22 @@ public class BillGroupService {
         }
         BillGroup group = new BillGroup(request.name().trim(), sessionId);
         group.setInviteCode(codes.generate());
-        group = repository.save(group);
+        group = repository.saveAndFlush(group);
         List<Participant> participants = new ArrayList<>();
         for (int i = 0; i < request.participants().size(); i++) {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
         }
         participantRepository.saveAll(participants);
+        return new BillGroupResponse(group);
+    }
+
+    public BillGroupResponse join(String code, String sessionId) {
+        if (code == null || !code.matches("[A-Z0-9]{6}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use 6 uppercase letters or numbers");
+        }
+        BillGroup group = repository.findByInviteCode(code).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Invite code not found"));
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 

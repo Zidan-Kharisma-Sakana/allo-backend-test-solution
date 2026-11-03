@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BillGroupRepository extends JpaRepository<BillGroup, UUID> {
 
+    Optional<BillGroup> findByInviteCode(String inviteCode);
+
     List<BillGroup> findByOwnerSessionId(String ownerSessionId);
 
     Optional<BillGroup> findByIdAndOwnerSessionId(UUID id, String ownerSessionId);
