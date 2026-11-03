@@ -51,6 +51,13 @@ public class ExpenseService {
         return new ExpenseResponse(expense);
     }
 
+    private ExpenseResponse replay(Expense previous, CreateExpenseRequest request) {
+        if (!ExpenseFingerprint.of(request).equals(previous.getRequestFingerprint())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key already used with different expense data");
+        }
+        return new ExpenseResponse(previous);
+    }
+
     @org.springframework.transaction.annotation.Transactional
     public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
@@ -86,7 +93,7 @@ public class ExpenseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key must be 1 to 128 visible ASCII characters");
         }
         Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElse(null);
-        if (previous != null) return new ExpenseResponse(previous);
+        if (previous != null) return replay(previous, request);
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
         if (key == null || !key.matches("[!-~]{1,128}")) {
