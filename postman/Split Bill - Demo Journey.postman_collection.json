@@ -1,0 +1,843 @@
+{
+  "info": {
+    "_postman_id": "946939bb-93f7-427a-903c-708f3a688382",
+    "name": "Split Bill | Weekend Demo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "# A weekend in Bandung\nAlice, Bob, and Cara record their shared expenses, then find out who owes whom.\n\n**Run the folders in order, starting with 01.** Use Send for a walkthrough or run the entire collection. IDs are captured automatically; no environment file is needed.\n\n- Start the API, then check the collection variable `base_url` (default: `http://localhost:4110`).\n- Keep Postman's cookie jar enabled. The group belongs to the session that creates it; do not switch between localhost and 127.0.0.1.\n- Each full run creates a fresh group. Avoid resending expense POST requests during one run, as each send adds another expense.\n- At the final request, open **Visualization / Visualize** for the presentation view.\n\n| Expense | Paid by | For | Amount (IDR) |\n| --- | --- | --- | ---: |\n| Lunch | Alice | Alice, Bob, Cara | 100,000.00 |\n| Taxi | Alice | Alice, Bob | 20,000.00 |\n| Tickets | Bob | Cara | 15,000.00 |\n\nExpected final total: **135,000.00 IDR**. Bob owes Alice **28,333.33**; Cara owes Alice **48,333.33**. The separate service charge is **6,750.00** for the default GitHub username (5%)."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4110",
+      "type": "string",
+      "description": "API address. Keep the same host throughout the demo."
+    },
+    {
+      "key": "group_name",
+      "value": "Bandung weekend",
+      "type": "string",
+      "description": "Name used when creating the group."
+    },
+    {
+      "key": "renamed_group_name",
+      "value": "Bandung weekend - shared expenses",
+      "type": "string",
+      "description": "Name used in the rename step."
+    },
+    {
+      "key": "group_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "alice_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "bob_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "cara_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "lunch_expense_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "taxi_expense_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    },
+    {
+      "key": "tickets_expense_id",
+      "value": "",
+      "type": "string",
+      "description": "Captured automatically. No manual editing needed."
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Create the group",
+      "description": "Set up the session-owned group and its participants.",
+      "item": [
+        {
+          "name": "01 - Create the weekend group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups"
+              ]
+            },
+            "description": "Create one group with three participants. The response saves group_id, and Postman keeps the session cookie.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{group_name}}\",\n  \"participants\": [\n    \"Alice\",\n    \"Bob\",\n    \"Cara\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "[\"group_id\", \"alice_id\", \"bob_id\", \"cara_id\", \"lunch_expense_id\", \"taxi_expense_id\", \"tickets_expense_id\"].forEach(key => pm.collectionVariables.unset(key));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const responseData = pm.response.json();",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"group_id\", responseData.id);",
+                  "pm.test(\"Group created in IDR\", () => pm.expect(responseData.currency).to.eql(\"IDR\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "02 - Get participants and save their IDs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/participants",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "participants"
+              ]
+            },
+            "description": "Capture Alice, Bob, and Cara IDs for the next requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "    responseData.forEach(person => pm.collectionVariables.set(person.name.toLowerCase() + \"_id\", person.id));",
+                  "}",
+                  "pm.test(\"Three participants\", () => pm.expect(responseData.map(person => person.name)).to.eql([\"Alice\", \"Bob\", \"Cara\"]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "03 - Read Alice's participant details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/participants/{{alice_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "participants",
+                "{{alice_id}}"
+              ]
+            },
+            "description": "Read one participant using the captured ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"This is Alice\", () => pm.expect(responseData.name).to.eql(\"Alice\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "04 - Rename the group",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}"
+              ]
+            },
+            "description": "Rename the group from the same owner session.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{renamed_group_name}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"New name saved\", () => pm.expect(responseData.name).to.eql(pm.collectionVariables.get(\"renamed_group_name\")));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "05 - Check the updated group",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}"
+              ]
+            },
+            "description": "Confirm the saved name and update timestamp."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Rename persisted\", () => pm.expect(responseData.name).to.eql(pm.collectionVariables.get(\"renamed_group_name\")));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Lunch for everyone",
+      "description": "Alice pays 100,000.00 IDR. Equal shares: Alice 33,333.34, Bob 33,333.33, Cara 33,333.33.",
+      "item": [
+        {
+          "name": "06 - Alice pays for everyone's lunch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses"
+              ]
+            },
+            "description": "Alice pays 100,000.00 IDR for all three participants. This also demonstrates distributing the rounding remainder.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 100000.0,\n  \"description\": \"Lunch for everyone\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\",\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const responseData = pm.response.json();",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"lunch_expense_id\", responseData.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "07 - Check the lunch split",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{lunch_expense_id}}/shares",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses",
+                "{{lunch_expense_id}}",
+                "shares"
+              ]
+            },
+            "description": "The extra 0.01 goes to Alice, the first participant. The shares still add up to exactly 100,000.00."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Three shares total 100,000.00\", () => {",
+                  "    pm.expect(responseData).to.have.lengthOf(3);",
+                  "    pm.expect(responseData.reduce((sum, share) => sum + Math.round(share.amount * 100), 0)).to.eql(10000000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "08 - Read Alice's lunch share",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{lunch_expense_id}}/shares/{{alice_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses",
+                "{{lunch_expense_id}}",
+                "shares",
+                "{{alice_id}}"
+              ]
+            },
+            "description": "Read one expense share using both expense ID and participant ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Alice receives the remainder\", () => pm.expect(responseData.amount).to.eql(33333.34));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "09 - Read the lunch expense",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{lunch_expense_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses",
+                "{{lunch_expense_id}}"
+              ]
+            },
+            "description": "Confirm the payer, description, and original expense amount."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Lunch was paid by Alice\", () => pm.expect(responseData.payerId).to.eql(pm.collectionVariables.get(\"alice_id\")));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Taxi for two people",
+      "description": "Alice pays again, this time only for herself and Bob. Cara is not included.",
+      "item": [
+        {
+          "name": "10 - Alice pays for the taxi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses"
+              ]
+            },
+            "description": "Add a second expense from Alice: 20,000.00 IDR split between Alice and Bob.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{alice_id}}\",\n  \"amount\": 20000.0,\n  \"description\": \"Taxi for Alice and Bob\",\n  \"participantIds\": [\n    \"{{alice_id}}\",\n    \"{{bob_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const responseData = pm.response.json();",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"taxi_expense_id\", responseData.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "11 - Check the taxi split",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses/{{taxi_expense_id}}/shares",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses",
+                "{{taxi_expense_id}}",
+                "shares"
+              ]
+            },
+            "description": "There should be two shares of 10,000.00. Cara should have no share."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Only Alice and Bob share the taxi\", () => {",
+                  "    pm.expect(responseData).to.have.lengthOf(2);",
+                  "    pm.expect(responseData.every(share => share.amount === 10000)).to.eql(true);",
+                  "    pm.expect(responseData.map(share => share.participantId)).not.to.include(pm.collectionVariables.get(\"cara_id\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Bob pays for Cara",
+      "description": "An expense can be paid by someone who is not a beneficiary.",
+      "item": [
+        {
+          "name": "12 - Bob buys Cara's ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses"
+              ]
+            },
+            "description": "Bob pays 15,000.00 IDR for Cara alone. Bob is the payer but does not owe a share of this expense.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payerId\": \"{{bob_id}}\",\n  \"amount\": 15000.0,\n  \"description\": \"Ticket for Cara\",\n  \"participantIds\": [\n    \"{{cara_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const responseData = pm.response.json();",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"tickets_expense_id\", responseData.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "13 - Review all three expenses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/expenses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "expenses"
+              ]
+            },
+            "description": "Review the complete expense history before settling up."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Three expenses total 135,000.00\", () => {",
+                  "    pm.expect(responseData).to.have.lengthOf(3);",
+                  "    pm.expect(responseData.reduce((sum, expense) => sum + Math.round(expense.amount * 100), 0)).to.eql(13500000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Review and settle up",
+      "description": "Show the group in the session list, then finish with the settlement visualization.",
+      "item": [
+        {
+          "name": "14 - Find the group in my session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups"
+              ]
+            },
+            "description": "This session can see the group created at the start of the walkthrough."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Current group is visible\", () => pm.expect(responseData.map(group => group.id)).to.include(pm.collectionVariables.get(\"group_id\")));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "15 - Show the final settlement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bill-groups/{{group_id}}/settlement",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bill-groups",
+                "{{group_id}}",
+                "settlement"
+              ]
+            },
+            "description": "Finish here. Open Visualization / Visualize to present the balances and transfers.\n\nExpected result with the default username:\n- Total: 135,000.00 IDR.\n- Bob pays Alice 28,333.33 IDR.\n- Cara pays Alice 48,333.33 IDR.\n- Separate service charge: 5%, or 6,750.00 IDR.\n\nThe API suggests transfers; it does not record completed payments."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "pm.test(\"Final total and separate service charge\", () => {",
+                  "    pm.expect(responseData.totalExpenses).to.eql(135000);",
+                  "    pm.expect(responseData.service_charge_pct).to.eql(5);",
+                  "    pm.expect(responseData.service_charge_amount).to.eql(6750);",
+                  "});",
+                  "pm.test(\"Bob and Cara settle with Alice\", () => {",
+                  "    const actual = responseData.settlements.map(payment => [payment.fromParticipantId, payment.toParticipantId, payment.amount]);",
+                  "    pm.expect(actual).to.have.deep.members([",
+                  "        [pm.collectionVariables.get(\"bob_id\"), pm.collectionVariables.get(\"alice_id\"), 28333.33],",
+                  "        [pm.collectionVariables.get(\"cara_id\"), pm.collectionVariables.get(\"alice_id\"), 48333.33]",
+                  "    ]);",
+                  "});",
+                  "const names = Object.fromEntries(responseData.balances.map(person => [person.participantId, person.name]));",
+                  "const money = value => Number(value).toLocaleString(\"en-US\", { minimumFractionDigits: 2, maximumFractionDigits: 2 });",
+                  "const transfers = responseData.settlements.map(payment => ({ from: names[payment.fromParticipantId], to: names[payment.toParticipantId], amount: money(payment.amount) }));",
+                  "const balances = responseData.balances.map(person => ({ name: person.name, paid: money(person.paid), owed: money(person.owed), balance: money(person.balance) }));",
+                  "const template = `",
+                  "<style>",
+                  "body { margin: 0; padding: 32px; background: #f4f6fa; color: #182339; font: 15px -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; }",
+                  "main { max-width: 920px; margin: auto; } h1 { margin: 6px 0 24px; font-size: 30px; } h2 { margin: 28px 0 12px; font-size: 20px; }",
+                  ".label { color: #65748b; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }",
+                  ".cards { display: flex; gap: 16px; } .card { background: white; border: 1px solid #dde3ed; border-radius: 12px; padding: 20px; flex: 1; }",
+                  ".value { margin-top: 8px; font-size: 26px; font-weight: 650; } .note { color: #65748b; margin: 12px 0 0; line-height: 1.5; }",
+                  "table { width: 100%; border-collapse: collapse; background: white; } th, td { padding: 14px 18px; border-bottom: 1px solid #e4e9f1; text-align: left; } th { background: #eaf0f8; } .number { text-align: right; font-variant-numeric: tabular-nums; }",
+                  "</style>",
+                  "<main>",
+                  "<div class=\"label\">Split Bill / Settlement</div><h1>{{groupName}}</h1>",
+                  "<div class=\"cards\"><div class=\"card\"><div class=\"label\">Total expenses / {{currency}}</div><div class=\"value\">{{total}}</div></div><div class=\"card\"><div class=\"label\">Separate service charge / {{percentage}}%</div><div class=\"value\">{{charge}}</div><div class=\"note\">Excluded from participant transfers.</div></div></div>",
+                  "<h2>Who pays whom</h2><table><tr><th>From</th><th>To</th><th class=\"number\">Amount / {{currency}}</th></tr>{{#each transfers}}<tr><td>{{from}}</td><td>{{to}}</td><td class=\"number\">{{amount}}</td></tr>{{else}}<tr><td colspan=\"3\">Everyone is settled.</td></tr>{{/each}}</table>",
+                  "<h2>Participant balances</h2><table><tr><th>Participant</th><th class=\"number\">Paid</th><th class=\"number\">Share owed</th><th class=\"number\">Net balance</th></tr>{{#each balances}}<tr><td>{{name}}</td><td class=\"number\">{{paid}}</td><td class=\"number\">{{owed}}</td><td class=\"number\">{{balance}}</td></tr>{{/each}}</table><p class=\"note\">A positive balance means the participant receives money. A negative balance means they pay.</p>",
+                  "</main>`;",
+                  "pm.visualizer.set(template, { groupName: pm.collectionVariables.get(\"renamed_group_name\"), currency: responseData.currency, total: money(responseData.totalExpenses), percentage: responseData.service_charge_pct, charge: money(responseData.service_charge_amount), transfers, balances });"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Expected weekend settlement",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/bill-groups/{{group_id}}/settlement",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "bill-groups",
+                    "{{group_id}}",
+                    "settlement"
+                  ]
+                },
+                "description": "Finish here. Open Visualization / Visualize to present the balances and transfers.\n\nExpected result with the default username:\n- Total: 135,000.00 IDR.\n- Bob pays Alice 28,333.33 IDR.\n- Cara pays Alice 48,333.33 IDR.\n- Separate service charge: 5%, or 6,750.00 IDR.\n\nThe API suggests transfers; it does not record completed payments."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"currency\": \"IDR\",\n  \"totalExpenses\": 135000.0,\n  \"balances\": [\n    {\n      \"participantId\": \"a21524a9-a4ad-564f-8d06-839d466fa53a\",\n      \"name\": \"Alice\",\n      \"paid\": 120000.0,\n      \"owed\": 43333.34,\n      \"balance\": 76666.66\n    },\n    {\n      \"participantId\": \"1cd791e3-2244-56bb-9f0e-22cc55e489b4\",\n      \"name\": \"Bob\",\n      \"paid\": 15000.0,\n      \"owed\": 43333.33,\n      \"balance\": -28333.33\n    },\n    {\n      \"participantId\": \"4f12f49a-bc20-5c31-b2b5-bda4a669c7b4\",\n      \"name\": \"Cara\",\n      \"paid\": 0.0,\n      \"owed\": 48333.33,\n      \"balance\": -48333.33\n    }\n  ],\n  \"settlements\": [\n    {\n      \"fromParticipantId\": \"1cd791e3-2244-56bb-9f0e-22cc55e489b4\",\n      \"toParticipantId\": \"a21524a9-a4ad-564f-8d06-839d466fa53a\",\n      \"amount\": 28333.33\n    },\n    {\n      \"fromParticipantId\": \"4f12f49a-bc20-5c31-b2b5-bda4a669c7b4\",\n      \"toParticipantId\": \"a21524a9-a4ad-564f-8d06-839d466fa53a\",\n      \"amount\": 48333.33\n    }\n  ],\n  \"service_charge_pct\": 5,\n  \"service_charge_amount\": 6750.0\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
