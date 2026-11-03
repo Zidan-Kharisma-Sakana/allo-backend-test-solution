@@ -52,7 +52,7 @@ public class ExpenseService {
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId) {
+    public ExpenseResponse create(UUID groupId, CreateExpenseRequest request, String sessionId, String key) {
         BillGroup group = groupRepository.findAccessibleById(groupId, sessionId).orElse(null);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill group not found");
@@ -84,6 +84,11 @@ public class ExpenseService {
         }
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
+        if (key == null || !key.matches("[!-~]{1,128}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key must be 1 to 128 visible ASCII characters");
+        }
+        expense.setIdempotencyKey(key);
+        expense.setRequestFingerprint(ExpenseFingerprint.of(request));
         expense.setDescription(request.description());
         expense = repository.save(expense);
         List<ExpenseShare> shares = new ArrayList<>();
