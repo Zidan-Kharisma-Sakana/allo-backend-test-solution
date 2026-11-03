@@ -82,6 +82,11 @@ public class ExpenseService {
         if (payer == null || beneficiaries.size() != request.participantIds().size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payer and participants must belong to this group");
         }
+        if (key == null || !key.matches("[!-~]{1,128}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key must be 1 to 128 visible ASCII characters");
+        }
+        Expense previous = repository.findByBillGroupIdAndIdempotencyKey(groupId, key).orElse(null);
+        if (previous != null) return new ExpenseResponse(previous);
         List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
         Expense expense = new Expense(group, payer, request.amount());
         if (key == null || !key.matches("[!-~]{1,128}")) {
