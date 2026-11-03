@@ -23,6 +23,7 @@ public class BillGroupService {
     private final ParticipantRepository participantRepository;
     private final InviteCodeGenerator codes;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     public List<BillGroupResponse> list(String sessionId) {
         List<BillGroup> groups = repository.findAccessibleBySessionId(sessionId);
@@ -41,8 +42,19 @@ public class BillGroupService {
         return new BillGroupResponse(group);
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public BillGroupResponse create(CreateBillGroupRequest request, String sessionId) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        for (int attempt = 0; attempt < 10; attempt++) {
+            try {
+                return transaction.execute(status -> createOnce(request, sessionId));
+            } catch (org.springframework.dao.DataIntegrityViolationException failure) {
+                if (!DatabaseConflict.isConstraint(failure, "bill_groups_invite_code_unique")) throw failure;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Could not generate invite code, try again");
+    }
+
+    private BillGroupResponse createOnce(CreateBillGroupRequest request, String sessionId) {
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 150) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Group name is required, maximum 150 characters");
         }
