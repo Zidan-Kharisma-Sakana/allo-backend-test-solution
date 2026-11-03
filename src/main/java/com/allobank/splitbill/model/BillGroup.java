@@ -23,6 +23,9 @@ public class BillGroup {
     @Column(nullable = false, length = 3)
     private String currency;
 
+    @Column(name = "invite_code", nullable = false, length = 6)
+    private String inviteCode;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

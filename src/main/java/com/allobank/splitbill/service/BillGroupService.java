@@ -23,6 +23,7 @@ public class BillGroupService {
 
     private final BillGroupRepository repository;
     private final ParticipantRepository participantRepository;
+    private final InviteCodeGenerator codes;
 
     public List<BillGroupResponse> list(String sessionId) {
         log.info("Listing bill groups");
@@ -59,7 +60,9 @@ public class BillGroupService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request");
             }
         }
-        BillGroup group = repository.save(new BillGroup(request.name().trim()));
+        BillGroup group = new BillGroup(request.name().trim());
+        group.setInviteCode(codes.generate());
+        group = repository.save(group);
         List<Participant> participants = new ArrayList<>();
         for (int i = 0; i < request.participants().size(); i++) {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
