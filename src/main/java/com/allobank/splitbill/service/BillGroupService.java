@@ -41,6 +41,7 @@ public class BillGroupService {
         return new BillGroupResponse(group);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public BillGroupResponse create(CreateBillGroupRequest request, String sessionId) {
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 150) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Group name is required, maximum 150 characters");
@@ -61,6 +62,7 @@ public class BillGroupService {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
         }
         participantRepository.saveAll(participants);
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 
