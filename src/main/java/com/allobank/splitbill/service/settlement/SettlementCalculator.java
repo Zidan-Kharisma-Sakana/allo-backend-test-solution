@@ -1,4 +1,4 @@
-package com.allobank.splitbill.service;
+package com.allobank.splitbill.service.settlement;
 
 import com.allobank.splitbill.dto.SettlementResponse.Balance;
 import com.allobank.splitbill.dto.SettlementResponse.Transfer;

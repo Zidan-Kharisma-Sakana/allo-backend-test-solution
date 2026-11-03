@@ -4,7 +4,7 @@ import com.allobank.splitbill.dto.SettlementResponse.Transfer;
 import com.allobank.splitbill.model.Expense;
 import com.allobank.splitbill.model.ExpenseShare;
 import com.allobank.splitbill.model.Participant;
-import com.allobank.splitbill.service.SettlementCalculator;
+import com.allobank.splitbill.service.settlement.SettlementCalculator;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;

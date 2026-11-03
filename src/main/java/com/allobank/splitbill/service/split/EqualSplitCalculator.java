@@ -1,4 +1,4 @@
-package com.allobank.splitbill.service;
+package com.allobank.splitbill.service.split;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -7,8 +7,9 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
-public class EqualSplitCalculator {
+public class EqualSplitCalculator implements SplitCalculator {
 
+    @Override
     public List<BigDecimal> split(BigDecimal amount, int participantCount) {
         List<BigDecimal> result = new ArrayList<>();
         BigDecimal share = amount.divide(BigDecimal.valueOf(participantCount), 2, RoundingMode.DOWN);

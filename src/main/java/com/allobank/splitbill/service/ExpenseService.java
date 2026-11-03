@@ -3,6 +3,7 @@ package com.allobank.splitbill.service;
 import static com.allobank.splitbill.exception.ApplicationException.invalidRequest;
 
 import com.allobank.splitbill.dto.CreateExpenseRequest;
+import com.allobank.splitbill.service.split.SplitCalculator;
 import com.allobank.splitbill.dto.ExpenseResponse;
 import com.allobank.splitbill.exception.ApplicationException;
 import com.allobank.splitbill.model.BillGroup;
@@ -34,7 +35,7 @@ public class ExpenseService {
     private final BillGroupService access;
     private final ParticipantRepository participantRepository;
     private final ExpenseShareRepository shareRepository;
-    private final EqualSplitCalculator splitCalculator;
+    private final SplitCalculator splitCalculator;
     private final PlatformTransactionManager transactionManager;
 
     public List<ExpenseResponse> list(UUID groupId, String sessionId) {

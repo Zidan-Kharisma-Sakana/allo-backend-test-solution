@@ -1,6 +1,7 @@
 package com.allobank.splitbill.service;
 
 import com.allobank.splitbill.dto.SettlementResponse;
+import com.allobank.splitbill.service.settlement.SettlementCalculator;
 import com.allobank.splitbill.repository.ExpenseRepository;
 import com.allobank.splitbill.repository.ExpenseShareRepository;
 import com.allobank.splitbill.repository.ParticipantRepository;
