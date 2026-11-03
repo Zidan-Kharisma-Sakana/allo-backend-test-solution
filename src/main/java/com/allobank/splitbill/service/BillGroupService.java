@@ -62,7 +62,7 @@ public class BillGroupService {
             participants.add(new Participant(group, request.participants().get(i).trim(), i));
         }
         participantRepository.saveAll(participants);
-        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?) ON CONFLICT DO NOTHING", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 
@@ -72,7 +72,7 @@ public class BillGroupService {
         }
         BillGroup group = repository.findByInviteCode(code).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Invite code not found"));
-        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?)", group.getId(), sessionId);
+        jdbc.update("INSERT INTO group_members (bill_group_id, session_id) VALUES (?, ?) ON CONFLICT DO NOTHING", group.getId(), sessionId);
         return new BillGroupResponse(group);
     }
 
