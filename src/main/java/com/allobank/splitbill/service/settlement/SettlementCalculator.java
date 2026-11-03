@@ -1,5 +1,7 @@
 package com.allobank.splitbill.service.settlement;
 
+import static com.allobank.splitbill.exception.ApplicationException.invalidRequest;
+
 import com.allobank.splitbill.dto.SettlementResponse.Balance;
 import com.allobank.splitbill.dto.SettlementResponse.Transfer;
 import com.allobank.splitbill.dto.SettlementResponse;
@@ -23,7 +25,7 @@ public class SettlementCalculator {
                                         List<ExpenseShare> shares, String username) {
         Map<UUID, BigDecimal> paid = new LinkedHashMap<>();
         Map<UUID, BigDecimal> owed = new LinkedHashMap<>();
-        BigDecimal zero = new BigDecimal("0.00");
+        BigDecimal zero = BigDecimal.ZERO;
         for (Participant participant : participants) {
             paid.put(participant.getId(), zero);
             owed.put(participant.getId(), zero);
@@ -31,12 +33,13 @@ public class SettlementCalculator {
         BigDecimal total = zero;
         for (Expense expense : expenses) {
             UUID payerId = expense.getPayer().getId();
-            paid.put(payerId, paid.get(payerId).add(expense.getAmount()));
-            total = total.add(expense.getAmount());
+            BigDecimal amount = wholeRupiah(expense.getAmount());
+            paid.put(payerId, paid.get(payerId).add(amount));
+            total = total.add(amount);
         }
         for (ExpenseShare share : shares) {
             UUID participantId = share.getId().getParticipantId();
-            owed.put(participantId, owed.get(participantId).add(share.getAmount()));
+            owed.put(participantId, owed.get(participantId).add(wholeRupiah(share.getAmount())));
         }
         List<Balance> balances = new ArrayList<>();
         Map<UUID, BigDecimal> remaining = new LinkedHashMap<>();
@@ -61,7 +64,14 @@ public class SettlementCalculator {
         }
         int percentage = (int) (username.toLowerCase(Locale.ROOT).codePoints().asLongStream().sum() % 10);
         BigDecimal charge = total.multiply(BigDecimal.valueOf(percentage)).movePointLeft(2)
-                .setScale(2, RoundingMode.HALF_UP);
+                .setScale(0, RoundingMode.DOWN);
         return new SettlementResponse("IDR", total, balances, settlements, percentage, charge);
+    }
+
+    private BigDecimal wholeRupiah(BigDecimal amount) {
+        if (amount == null || amount.stripTrailingZeros().scale() > 0) {
+            throw invalidRequest();
+        }
+        return amount.setScale(0, RoundingMode.UNNECESSARY);
     }
 }

@@ -1,7 +1,9 @@
 # Split Bill API
 
 Java 21, Spring Boot, Maven, PostgreSQL and Flyway. Equal splits use BigDecimal.
-Rounding remainders go to participants in their saved order.
+Amounts use whole rupiah. Rounding remainders go to participants in their saved
+order. Fractional expenses are rejected, and service charges round down to whole
+rupiah without carrying the discarded fraction forward.
 
 ## Run
 
@@ -84,7 +86,7 @@ errors return 400 and inaccessible resources return 404. Unexpected failures ret
 ./mvnw test
 ```
 
-Five plain JUnit cases cover settlement, empty groups, balanced payments, multiple
+Plain JUnit tests cover settlement, empty groups, balanced payments, multiple
 creditors, and service charge. No database is needed for unit tests.
 The endpoints can be tried in Swagger UI.
 
