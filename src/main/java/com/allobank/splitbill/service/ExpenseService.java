@@ -15,6 +15,7 @@ import com.allobank.splitbill.repository.ExpenseShareRepository;
 import com.allobank.splitbill.repository.ParticipantRepository;
 import com.allobank.splitbill.util.DatabaseConflict;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -102,8 +103,9 @@ public class ExpenseService {
             throw invalidRequest();
         }
         log.info("Splitting expense");
-        List<BigDecimal> amounts = splitCalculator.split(request.amount(), beneficiaries.size());
-        Expense expense = new Expense(group, payer, request.amount());
+        BigDecimal amount = request.amount().setScale(0, RoundingMode.UNNECESSARY);
+        List<BigDecimal> amounts = splitCalculator.split(amount, beneficiaries.size());
+        Expense expense = new Expense(group, payer, amount);
         expense.setIdempotencyKey(key);
         expense.setDescription(request.description());
         expense = repository.save(expense);
@@ -116,7 +118,7 @@ public class ExpenseService {
     }
 
     private void validateInput(CreateExpenseRequest request) {
-        if (request.amount() == null || request.amount().signum() <= 0 || request.amount().stripTrailingZeros().scale() > 2) {
+        if (request.amount() == null || request.amount().signum() <= 0 || request.amount().stripTrailingZeros().scale() > 0) {
             log.info("Invalid amount");
             throw invalidRequest();
         }
